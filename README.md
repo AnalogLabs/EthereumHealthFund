@@ -37,8 +37,7 @@ The Ethereum Health Fund (EHF) has 3 important features that address major short
     
     - prior authorizations
     - utilization review
-    - delayed or missing payments for services rendered
-    - resorting to collection agencies  
+    - late or delinquent payments for services rendered
     - applying to join each individual health insurance company's network
 
 
@@ -50,11 +49,11 @@ To interface with the contract pythonically, first make sure you have the Go-Eth
 ```
 cd /home/omar/ehf/simbel
 python3
-from bcinterface import *
 
+>>> from bcinterface import *
 >>> bci = BCInterface(mainnet=False)  
-bci.load_contract(contract_name="ehf", contract_address="0xA87E48DC4D749B5e726Aa9cbaB1A026446e019e0")
-bci.howdyho()  # sanity check
+>>> bci.load_contract(contract_name="ehf", contract_address="0xA87E48DC4D749B5e726Aa9cbaB1A026446e019e0")
+>>> bci.howdyho()  # sanity check
 ```
 ### Managing Ethereum accounts
 By default, the blockchain interface manager (BCInterface class) uses the zero-indexed Ethereum account. You can specify a different account and unlock accounts.
@@ -63,71 +62,85 @@ bci.set_account(1)  # use Ethereum account with index of 1 (i.e. second account)
 bci.unlock_account()
 ```
 
-To create a new account:
+### Create a new account:
 ```
 bci.new_account()
 ```
 
-A *Request For Service (RFS)* is a bid for a health-related service such inpatient/outpatient services, diagnostic tests, and therapeutics. A new RFS can be submitted by calling the ```new_request_for_service``` method:
+## Health Marketplace Features
+A *Request For Service (RFS)* is a bid for a health-related service such inpatient/outpatient services, diagnostic tests, and therapeutics. 
+
+### Submit a Request For Service
 
 ```
-bci.contract.transact(bci.tx).new_request_for_service( ... )
-```
-```new_request_for_service``` method takes the following arguments, in order:
-```
-string _description,
-uint _max_amount (in wei, where 10**18 wei = 1 Ether),
-uint _bid_start_time (in UTC epoch seconds),
-uint _bid_end_time (in UTC epoch seconds),
+bci.contract.transact(bci.tx).new_request_for_service()
+
+Arguments:
+	string _description,
+	uint _max_amount (in wei, where 10**18 wei = 1 Ether),
+	uint _bid_start_time (in UTC epoch seconds),
+	uint _bid_end_time (in UTC epoch seconds),
 ```
 
 Requests For Service are 2-dimensional data structures indexed first by the Ethereum address that submitted a RFS, and second by a zero-indexed list.
 
-### Retrive a RFS
+### Retrive a Request For Service
 ```
-bci.contract.call().get_rfs( ... )
+bci.contract.call().get_rfs( )
 
 Arguments:
     address rfs_address,
     uint8 rfs_index,
+
+Returns:
+    string description,
+    uint max_amount,  # maximum acceptable amount for a service/good
+    uint bid_start_time,  # in UTC epoch seconds
+    uint bid_end_time,    # in UTC epoch seconds
+    address buyer,        # Ethereum address of party submitting RFS
+    uint8 state,  # 0: open, 1: accepted, 2: executed, 3: canceled
+    address lowest_bidder,  
+    uint lowest_bid
+
 ```
 
-### Query number of RFS associated with user's Ethereum account
+### Query number of Requests For Service associated with user's Ethereum account
 ```
-bci.contract.call().get_rfs_count( ... )
+bci.contract.call().get_rfs_count()
  
 Arguments:
     None 
 
-Returns uint _count representing number of RFS associated with user's Ethereum address.
+Returns:
+    uint count  # number of RFS associated with user's Ethereum address.
 
 ```
 
-### Make an offer to a specific RFS
+### Make an offer to a specific Request For Service
 An offer consists of an amount of Ether (in wei) sent to the EHF contract, and the lowest bid at the end of the bidding period wins. Offers are associated with a specific RFS using the 2-index method described above.
 ```
 bci.tx['value'] = 10**18  # for example, to offer a service for 1 Ether = 10**18 wei
 
-bci.contract.transact(bci.tx).make_offer( ... )
+bci.contract.transact(bci.tx).make_offer()
 
 Arguments:
     address rfs_address,
-    uint8 rfs_index,
+    uint8 rfs_index
 
+Returns:
+    None
 ```
 
 ### Cancel a Request For Service
 ```
-bci.contract.transact(bci.tx).cancel_rfs( ... )
+bci.contract.transact(bci.tx).cancel_rfs()
 
 Arguments:
     uint8 rfs_index
 
 Returns:
     None
-
 ```
-
 ### Withdraw an offer that was overbid
 ```
 bci.contract.transact(bci.tx).withdraw()
@@ -140,7 +153,7 @@ Returns:
 ```
 
 ### End Request For Service bid and determine winner (lowest bid)
-This method only establish a winner (lowest bidder) but does not transfer funds.
+This method only establishes a winner (lowest bidder) but does not transfer funds.
 ```
 bci.contract.transact(bci.tx).end_rfs_bid()
 
@@ -151,7 +164,7 @@ Arguments:
 Returns:
     None
 ```
-### Transfer funds to the winner of a RFS bid
+### Transfer funds to the winner of a Request For Service bid
 This method can be called after the service/good is actually delivered (eg. on patient registration or pickup of a package).
 
 ```
@@ -165,7 +178,6 @@ Returns:
     None
 
 ```
-
 ### Check Ether and token balances.
 ```
 bci.contract.call().get_eth_balance("0x...")
@@ -185,11 +197,10 @@ Returns:
 
 ### Buy and sell token .
 ```
-bci.tx['value'] = 10**18  # exchange one Ether for Fleet Coin at current exchange rate
+bci.tx['value'] = 10**18  # exchange one Ether for token at current exchange rate
 bci.contract.transact(bci.tx).buy()
 bci.contract.transact(bci.tx).sell(500)  # sell 500 tokens
 ```
-The Ethereum Health Fund contract, ABI, and binary are located in the *source* directory.
 
 ## Deploying on a private network
 The following steps are for users with a solid grasp of Ethereum development and networking, or who are motivated to put in the effort to learn. 
@@ -219,6 +230,7 @@ loadScript('/home/omar/Desktop/fleetfox/simbel/source/ehf.js')
 Make note of the address to which the contract is mined.
 
 ## Directory structure
+
 The directory structure is important because Simbel and the Simbel Networking Utility look for certain files in certain directories. Your application will look something like this:
 ```
 /your_working_directory
@@ -251,6 +263,8 @@ The directory structure is important because Simbel and the Simbel Networking Ut
 	/docs
 
 ```
+
+The Ethereum Health Fund contract, ABI, and binary are located in the *source* directory.
 
 ## Contribute
 Visit [Analog Labs](https://analog.earth) for more information about the Ethereum Health Fund and to apply to be a pilot site.
